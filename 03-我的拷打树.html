@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · 我的拷打树（交互版 · 双项目）</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23,23,23,0.12);
+  --brand: #4B3FE3;
+  --brand-soft: #F5F6FF;
+  --brand-text: #1A1759;
+  --accent: #27D2BF;
+  --accent-soft: #EAFBF8;
+  --accent-text: #0F766E;
+  --warn: #EFAA17;
+  --font: "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono: "JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #171717;
+  --surface-muted: #262626;
+  --text: #E5E5E5;
+  --text-muted: #A1A1AA;
+  --border: rgba(229,229,229,0.12);
+  --brand: #6054F1;
+  --brand-soft: #1A1759;
+  --brand-text: #CFD8FF;
+  --accent: #27D2BF;
+  --accent-soft: #123F3C;
+  --accent-text: #CCFBF1;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--text); font: 14px/1.7 var(--font); }
+.wrap { max-width: 880px; margin: 0 auto; padding: 24px 20px 60px; }
+header.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+h1 { font-size: 18px; margin: 0; font-weight: 600; }
+.sub { color: var(--text-muted); font-size: 12px; margin: 4px 0 0; }
+.theme-btn {
+  background: var(--surface-muted); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; cursor: pointer;
+}
+.hint {
+  display: flex; gap: 8px; align-items: center;
+  color: var(--text-muted); font-size: 12px; padding: 10px 0 16px;
+}
+.hint kbd {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 1px 7px; background: var(--surface-muted); font-family: var(--mono);
+}
+/* ===== 大块（每个项目一块） ===== */
+.region { margin: 24px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.region-head {
+  padding: 16px 20px; background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+}
+.region-head .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }
+.region-head .name { font-size: 16px; font-weight: 600; }
+.region-head .desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.6; }
+.region.band .tag { background: var(--brand-soft); color: var(--brand-text); }
+.region.ac .tag { background: var(--accent-soft); color: var(--accent-text); }
+.region.warn .tag { background: rgba(239,170,23,0.15); color: #B45309; }
+html[data-theme="dark"] .region.warn .tag { color: #FBD38D; }
+.region-body { padding: 14px 18px; }
+/* ===== 节点 ===== */
+.node { margin: 6px 0; }
+.node > .q-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface-muted); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+  color: var(--text); font-size: 14px; font-weight: 500;
+}
+.node > .q-btn:hover { border-color: var(--brand); }
+.node.open > .q-btn { border-color: var(--brand); }
+.node > .q-btn .chev {
+  width: 0; height: 0; flex: 0 0 auto;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid var(--text-muted);
+  transition: transform 150ms ease; margin-left: auto;
+}
+.node.open > .q-btn .chev { transform: rotate(180deg); }
+.node > .q-btn .code {
+  font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-muted); min-width: 30px;
+}
+.node.band > .q-btn .code { color: var(--brand); }
+.node.ac > .q-btn .code { color: var(--accent); }
+/* 区块内小标题（如【流程】【拷打】【深挖】） */
+.sub-head {
+  margin: 18px 0 8px; font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.sub-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+/* ===== 答案 ===== */
+.panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 180ms ease; }
+.node.open > .panel { grid-template-rows: 1fr; }
+.panel > div { overflow: hidden; }
+.panel-inner { padding-left: 16px; padding-top: 6px; }
+.ans {
+  margin: 6px 0; padding: 10px 14px;
+  background: var(--surface); border-left: 3px solid var(--brand); border-radius: 0 8px 8px 0;
+}
+.node.ac > .panel .ans { border-left-color: var(--accent); }
+.ans .lab { font-size: 12px; font-weight: 600; color: var(--brand-text); margin-bottom: 4px; display: block; }
+.node.ac > .panel .ans .lab { color: var(--accent-text); }
+.ans p { margin: 6px 0; }
+.ans ul { margin: 6px 0; padding-left: 20px; }
+.ks { font-size: 12px; color: var(--text-muted); }
+.principle {
+  margin: 6px 0; padding: 8px 12px;
+  background: var(--brand-soft); border: 1px dashed var(--brand);
+  border-radius: 8px; font-size: 12px; color: var(--brand-text);
+}
+.node.ac > .panel .principle { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+.mono { font-family: var(--mono); font-size: 12px; background: var(--surface-muted); padding: 0 5px; border-radius: 4px; }
+.flow-step { margin: 4px 0; padding-left: 2px; }
+.sublab { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 8px 0 4px; padding-left: 2px; }
+@media print { .theme-btn, .hint kbd { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>03 · 我的拷打树（双项目版）</h1>
+      <p class="sub">两个项目各一块 · 每块先讲通整体流程，再往下拷打 · 点击问题展开答案</p>
+    </div>
+    <button class="theme-btn" id="themeBtn">切换深色模式</button>
+  </header>
+  <div class="hint"><kbd>▶ 问题</kbd>点击卡片展开答案；【流程】= 一条数据从进来到出去走哪些环节，必答。</div>
+  <div id="tree"></div>
+</div>
+
+<script>
+const DATA = [
+  /* ======================= 【项目一】承接端 ======================= */
+  {
+    cls: 'band', tag: '项目一', name: '多渠道获客数字员工平台（承接端）',
+    desc: '7 类 IM 渠道 · 长期驻场数字员工 · 线索沉淀。核心：多渠道接入、消息可靠性、身份权限、并发调度。',
+    nodes: [
+      { tag: '❤', q: '整条链路怎么跑：一条飞书消息进来，到回复出去，走哪几个环节？', open: true,
+        ans: [
+          '<strong>一句话</strong>：接入 → 安全前置 → 串行队列 → Agent 执行 → 回复。（每段都能往下一层展开）',
+          '<strong>逐环节展开</strong>：',
+          '<div class="flow-step">① <strong>接入</strong>：im-manager 维护与飞书等渠道的连接，通过统一 IMChannel 接口收消息——渠道差异在接口层就被收敛。</div>',
+          '<div class="flow-step">② <strong>安全前置</strong>：先过处理锁（防同一事件被并发处理）+ 准入门控（evaluateChannelAdmission，未授权发送者直接丢弃）。</div>',
+          '<div class="flow-step">③ <strong>身份归一</strong>：scopeChannelJid 把渠道 ID 归一到用户 ID；已绑定走 /pair 信任阶梯，未绑定降级为独立会话。</div>',
+          '<div class="flow-step">④ <strong>可靠性落库</strong>：入站先进 Inbox 账本去重（UNIQUE(provider,account_id,external_message_id)），同一消息重投不重复执行。</div>',
+          '<div class="flow-step">⑤ <strong>串行队列</strong>：按会话投进 GroupQueue，同一会话同一时刻只有一个 Agent 处理，不同会话并行受容量上限约束。</div>',
+          '<div class="flow-step">⑥ <strong>Agent 执行</strong>：Pi Runner 在容器/Host 内跑执行循环，读 Workspace 记忆（防伪造签名），产出回复。</div>',
+          '<div class="flow-step">⑦ <strong>出站投递</strong>：回复经 Outbox 账本分阶段投递（幂等键），sendMessage 写回渠道。</div>',
+          '<div class="flow-step">⑧ <strong>流式返回</strong>：流式卡片三级降级（打字机→CardKit 全量替换→传统 patch），每 turn 至多一张活跃卡。</div>',
+          '<strong>口诀</strong>：接入 → 路由 → Loop → 权限（资源/命令/渠道三层收口）→ 发送。'
+        ],
+        subs: [
+          { q: '消息在哪个环节最容易丢？怎么防？（动机刀）', ans: ['最容易丢的是"回执已提交但游标还没推进"的窗口。解法：双游标（next-pull/committed）分开，启动时四连对账（Inbox/Outbox/流式卡/IPC）一致才放行入站——宁可重放不可丢。'] },
+          { q: '同一个客户在多渠道发消息，会当成几个人吗？（边界刀）', ans: ['会，所以有身份归一：渠道 ID 经 scopeChannelJid 归一到统一用户 ID，多端消息进同一会话 threading——这是"身份建模"问题，不是模型推理问题。'] }
+        ],
+        principle: '整条链路的本质是"先信任、再执行、后投递"：安全前置做信任判别、GroupQueue 保证有序、四账本保证不重不丢、权限三层收口防越权。'
+      },
+      { tag: 'Q1', q: '为什么做这个项目？业务痛在哪？',
+        ans: [
+          '<strong>简答</strong>：私域客户散在七类 IM，线索靠表格登记、跟进无沉淀；多个销售团队共用平台，身份与数据边界易串。',
+          '<strong>展开</strong>：成功标准是"内容生产→多渠道触达→线索沉淀"闭环跑通；数字员工能长期驻场承接触达、破冰、跟进与画像沉淀。',
+          '<strong>诚实答</strong>：规模类数字没有第一手口径，可说验收方式（功能闭环+可靠性语义验证），具体业务量需向导师核实。'
+        ],
+        subs: [
+          { q: '谁在用？一天几次？人工原来多痛？（动机刀）', ans: ['面向企业市场/销售部门；人工痛点=线索靠表格登记、跟进无记录、渠道分散要人工切换。业务量数字按 00 A1/A2 口径答，不编。'] },
+          { q: '成功标准怎么度量？（动机刀）', ans: ['两级：业务闭环（内容→触达→线索沉淀）+ 工程语义（消息不丢不重、身份不串、并发不打架）——后者才是能当面试题讲的"度量"。'] },
+          { q: '为什么先做 7 个渠道，不先只做企微一个？（替代刀）', ans: ['渠道矩阵决定触达半径，客户私域本来就分散；但统一契约后新增渠道边际成本低。正确顺序是先跑通 2-3 个官方 API 高频渠道，微信个人号/WhatsApp 逆向协议风险渠道列为实验项，不进主链路。'] }
+        ] },
+      { tag: 'Q2', q: '为什么 AI 是答案？规则/人工不行吗？',
+        ans: [
+          '<strong>简答</strong>：破冰话术、意向判断是语义问题，规则写不完；但身份、权限、可靠性不是语义问题，收在服务层——"模型提议、系统裁决"。',
+          '<strong>展开</strong>：从获客流程拆四段（触达/破冰/跟进/画像沉淀），只有语义理解与表达交给模型。'
+        ],
+        subs: [
+          { q: '哪一步模型必须做？哪一步不该让模型做？（边界刀）', ans: ['必须模型：破冰话术生成、意向判断、话术按客户画像改写（开放语义）；不该给模型：身份归属、权限裁决、消息去重、状态机流转（确定性问题收服务层）。口诀：模型提议、系统裁决。'] },
+          { q: '模型被提示注入、想篡改客户画像怎么办？（边界刀）', ans: ['三类防线：①画像写入带 HMAC 能力签名、一次性消费防伪造防重放；②记忆快照声明 trust="historical_data"（历史数据非指令）；③模型不持系统密钥。注入最多影响"它在说什么"，改不了"系统记录什么"。'] },
+          { q: '破冰话术用关键词规则，能兜多少？（替代刀）', ans: ['固定意图（进来问价格）规则能兜，开放对话接不住；但规则不浪费——做兜底回退、关键词触发模板，与模型互补不互斥。'] }
+        ] },
+      { tag: 'Q3', q: '画一下架构，你负责哪块？',
+        ans: [
+          '<strong>简答</strong>：四层——Backend（唯一有状态中枢：认证/SQLite/队列/调度/授权）→ Pi Runner（无数据库连接、不监听端口，只做 Agent 执行循环）→ Workspace（文件真相唯一锚点）→ 客户端（零令牌、Cookie 化 HTTP+WebSocket）。',
+          '<strong>展开</strong>：Runner 与主进程走 stdin/stdout/IPC 目录三条通道而非网络 API。',
+          '<strong>诚实答</strong>：Runtime 底座是团队选型复用，我负责应用端的渠道接入、身份模型、可靠性与调度这一层。'
+        ],
+        subs: [
+          { q: 'Runner 为什么不监听端口？不开网络 API 怎么通信？（动机刀）', ans: ['三段式零网络通道：stdin 一次性下发引导载荷、stdout 括号深度分帧输出、文件 IPC 目录承载跟进消息与哨兵（_close/_drain/_interrupt）。选型理由是持久性与跨容器可见性，不是性能；不开端口=攻击面小、载体可透明替换。'] },
+          { q: '哪一层是真相锚点？状态会不会多份？（边界刀）', ans: ['SQLite 在 Backend 是唯一可信状态源，Workspace 只管文件真相，runner 不落任何队列语义——不存在两份真相。'] },
+          { q: '为什么容器还要分 Host 模式？（替代刀）', ans: ['Container 隔离跑多数渠道；Host 模式是降级/调试通道，spawn 前最后一刻重查 admin+active——"持久化工作区≠授权授予"。隔离优先、活体特权仅作逃生通道。'] }
+        ] },
+      { tag: 'Q4', q: '微信里的张三和系统里的李雷，怎么知道是同一个人？（身份绑定）',
+        ans: [
+          '<strong>简答</strong>：身份归一不靠模型猜，靠显式绑定：用户表↔渠道账号表一对多，渠道 ID 带平台前缀；"张三=李雷"必须走绑定流程（优先 unionid，次选手机号验证码、扫码、后台人工确认），绑定后按统一用户 ID 加载全渠道记忆。',
+          '<strong>展开</strong>：绑定走 /pair 配对码：入站回调先过 inboundAllowed() 门控，再 scopeChannelJid 作用域归一；绑定来源记在 owner_claim_source 上，分五级信任阶梯（configured/trusted_direct/explicit/auto_feishu/transfer_reset）。还有会话粒度粘性归属（resolveStickyChannelOwner）。',
+          '<strong>诚实答</strong>：当时面试我说"测试只接了单渠道"失分——现在能明确：绑定机制设计并实现了（/pair+信任阶梯），从表结构讲到信任分级。'
+        ],
+        subs: [
+          { q: '凭什么证明两个账号是一个人？', ans: ['不能"证明"，只能显式绑定：unionid/手机验证码/扫码/人工，且信任分级。'] },
+          { q: '不做绑定会怎样？', ans: ['数据串人、隐私事故；所以未绑定渠道先降级成独立会话，绝不跨渠道合并上下文。'] }
+        ],
+        principle: '身份归一的本质是把"不可证明的等价关系"变成"可执行的绑定流程"——多端识别不是模型推理问题，是身份建模问题。' },
+      { tag: 'Q5', q: '四账本为什么是四张？合成一张不行吗？',
+        ans: [
+          '<strong>简答</strong>：四张账本对应四种不同的可靠性语义：inbox 管入站去重（UNIQUE(provider, account_id, external_message_id)）、turn_runs 管"这一轮执行"的确定性身份（runId=sha256(logicalKey)，创建即去重）、outbox 管出站分阶段投递（UNIQUE(turn_run_id, ordinal)+payload_hash）、streaming_cards 管流式卡单一活跃（revision CAS）。',
+          '<strong>展开</strong>：合并就等于让不同语义的幂等键互相污染——入站去重键和出站投递键天然不同。',
+          '<strong>追问"sending 之后超时为什么不能重试"</strong>：可能 Provider 已收到，副作用不可知——fence 为 uncertain 冻结整个 Turn 直到人工裁决，宁可冻结不可重复。'
+        ],
+        subs: [
+          { q: '四张的幂等键为什么各不相同？（动机刀）', ans: ['四种语义针对不同环节的重复来源：入站重复=渠道重投（外部消息 ID）；执行重复=同一逻辑轮被拉起两次（runId 确定性身份）；出站重复=状态机重放（turn_run_id+ordinal+payload_hash）；流式重复=同一 turn 多张活跃卡（revision CAS）。共用一张表=让不同重复来源互相踩幂等键。'] },
+          { q: 'sending 超时到底为什么冻结而非重试？（边界刀）', ans: ['写入阶段失败（pending→uploading 等）可安全重试，因为副作用未发生；sending 之后副作用不可知（Provider 可能已收已发），重试=可能重复触达客户——所以 fence uncertain 冻结 Turn 转人工裁决。口诀：先落库再动手/不确定即冻结/恢复尊重租约。'] },
+          { q: '用 Redis Stream/BullMQ 不是更主流吗？（替代刀）', ans: ['生产级队列带持久化+消费确认；但当前单机低并发下 SQLite 账本已够，且账本的核心价值是幂等语义设计，不是存储介质——换队列后四账本的分层语义照搬，只换底座。'] }
+        ] },
+      { tag: 'Q6', q: '10 个用户同时发消息，怎么调度？（并发）',
+        ans: [
+          '<strong>简答</strong>：入口事件队列 → 按 sessionId/JID 哈希路由 → 同一会话进串行队列（GroupQueue），保证同一会话同一时刻只有一个 Agent 在处理；不同会话并行，但受全局容量上限约束；失败指数退避重试，多次失败转人工。',
+          '<strong>展开</strong>：GroupQueue：JID 按 {folder}#{agentId} 解析到 Workspace folder，共享 folder 进同一条串行车道。入队四道闸门——终态丢弃、状态变更挂 MutationPauseToken、活跃检查写 _drain 哨兵、容量检查。失败重试用指数退避（MAX_RETRIES=5，BASE_RETRY_MS=5000）。活性用双时钟，恢复走分级终止 _close 2 秒→docker stop 15 秒→强杀。'
+        ],
+        principle: '调度的本质是"同一会话必须有序 = 共享写者单线程"，所以按 sessionId 串行化是正确性要求，不是性能优化；并发上限才是性能开关。' },
+      { tag: 'Q7', q: '消息会不会丢？重启怎么办？',
+        ans: [
+          '<strong>简答</strong>：SQLite 是唯一可信状态源；启动序列先 loadState() 恢复全局拉取游标与每会话双游标，再开 Web Server，最后 deferInbound 挂起下连渠道并做四连对账（Inbox/Outbox/流式卡/IPC）。',
+          '<strong>展开</strong>：at-least-once 重放优于 at-most-once 丢失；五阶段优雅停机（先停物化、再关队列、终结流式卡后才断渠道）。'
+        ],
+        subs: [
+          { q: '双游标为什么不合成一个？（动机刀）', ans: ['崩溃可能发生在"回执已提交但回执前就推进了 next-pull"之间——拿 next-pull 当 committed 会静默丢消息；分开放宁可重放不可丢，这是 at-least-once 的核心取舍。'] },
+          { q: '重启窗口期进来的消息会不会漏？（边界刀）', ans: ['不会：下连渠道前先挂起（deferInbound）+ 四连对账（Inbox/Outbox/流式卡/IPC 一致才放行入站），把"旧状态没恢复完就处理新消息"这个窗口锁死。'] },
+          { q: 'at-least-once 会不会造成客户收到两遍回复？（动机刀）', ans: ['不会：重放的是"安全方向"（宁可重复收消息，不丢消息）；重复是否触发执行由幂等键（inbox/turn_runs）去重裁决——重放不等于重执行。'] }
+        ] },
+      { tag: 'Q8', q: '为什么不是一个全能 Agent 做完？哪些是你独立做的？',
+        ans: [
+          '<strong>简答（多 Agent 边界）</strong>：多 Agent/多层拆的是角色、上下文、权限、责任边界；身份（Profile）、边界（Workspace）、记录（Session）分离后，越权面收敛、并发可控、审计可查。',
+          '<strong>简答（贡献边界）</strong>：两个 Agent 应用端由我独立负责设计与实现；Pi Agent Runtime 执行引擎是复用底座，团队层面引入；企业级交付（客户对接、业务验收）是导师带队。',
+          '<strong>追问"剥离集体的还剩多少"</strong>：渠道接入、三层身份模型、四账本与调度、画像记忆、权限矩阵、契约测试——应用端工程化设计都在我这边，有源码可查。'
+        ],
+        subs: [
+          { q: '多 Agent 之间到底怎么污染的？（动机刀）', ans: ['根因是共用会话存储、执行完都写回公共上下文——真实出过"把客户 A 的信息当客户 B 回答"的事故。三层拆分让三类状态各归其位。'] },
+          { q: '既然 Runtime 是复用底座，你写的代码离得开它吗？（贡献刀）', ans: ['离得开底座的部分：IMChannel 渠道契约、三层身份模型、四账本、GroupQueue、画像记忆、ACL 矩阵——这些在我负责的应用端，换任何执行引擎都成立；Runtime 只是执行载体。讲结构独立、不否定根基。'] },
+          { q: '这八件事里，最难的是哪个？（贡献刀）', ans: ['四账本：难在把"确定性/不可知/副作用"三种状态翻译成迁移动词（sending 后不重试）；其次是 GroupQueue 的边界（会话内串行 vs 全局并发上限，写错就是死锁或丢消息）。'] },
+          { q: '沙箱能隔离执行，为什么不替代授权？（边界刀）', ans: ['容器只隔离"代码能碰什么文件/进程"，不等于"Agent 有权摸客户数据"；授权单独收在 ACL 矩阵（canAccess/canModify/canDelete 不读 role 字段、无 admin 旁路）——一层隔离执行、一层裁决权限。'] }
+        ] },
+      { tag: 'Q9', q: '如果重做，你会改什么？',
+        ans: ['<strong>简答</strong>：三件事——① profile 级并发写直接上行级锁或单写者，不靠乐观锁硬扛；② WhatsApp 逆向协议渠道降级为可选实验渠道，不进主链路；③ 可观测性提前做 Trace 面板而不是事后翻账本。'],
+        subs: [
+          { q: '这三点当时为什么没做？是没想到还是没时间？（动机刀）', ans: ['诚实分层：①③是认知到了但受工期/优先级挤压（YAGNI 判断当时合理）；②是风险评估不足——逆向协议封号/合规风险，重做会主动降级。区分"没意识到"和"权衡后取舍"，后者更显判断力。'] },
+          { q: '如果只允许你改一件事，改哪个？（贡献刀）', ans: ['Trace 面板：它不直接修 bug，但让账本/GroupQueue 的运行时行为透明，所有后续排查效率倍增——可观测性是其他决策的地基。'] }
+        ] },
+      { tag: 'Q10', q: '进阶：SSE 是什么？你的流式输出和断线恢复怎么做？',
+        ans: [
+          '<strong>简答（概念题）</strong>：SSE 是 Server-Sent Events，服务端通过 HTTP 长连接把响应分块持续推给客户端，客户端 EventSource 收一块渲染一块；断线自动重连，标准恢复靠 Last-Event-ID 断点续传+retry+状态持久化+幂等去重。',
+          '<strong>展开（我的项目真实做法）</strong>：传输层实际用 WebSocket + stream_event，不是 SSE——客户端零令牌存储、Cookie 化 HTTP+WebSocket。流式卡片三级降级（Level0 打字机 70ms/字符 → Level1 CardKit 全量替换 ≥1000ms → Level2 传统 patch）。断线恢复靠服务端快照+runId fencing+eventId 幂等，重连后四连对账。'
+        ],
+        principle: '流式 ≠ 多活，恢复的本质是"重连后对账而非重跑"——恢复的是信道状态、不是业务执行。' }
+    ]
+  },
+  /* ======================= 【项目二】内容生产端 ======================= */
+  {
+    cls: 'ac', tag: '项目二', name: 'AI 营销内容生产助手（内容生产端）',
+    desc: '桌面端(Electron) + Web 端 · 换模型不改前端 · 多端复用统一 Agent 能力。核心：AgentBackend 统一模型后端、AgentEvent 事件流、工具权限、契约测试。',
+    nodes: [
+      { tag: '❤', q: '整条链路怎么跑：运营发起一个创作任务（如"读取这个文件并生成营销文案"），到产出成品，走哪些环节？', open: true,
+        ans: [
+          '<strong>一句话</strong>：UI → 统一 RPC → Server Core → SessionManager → AgentBackend → BaseAgent → 模型 → Tool/Permission → AgentEvent → RPC 回推双端。（Agent Loop 直到产出）',
+          '<strong>逐环节展开（对齐复习资料·一条消息完整执行链）</strong>：',
+          '<div class="flow-step">① <strong>端上发起</strong>：运营在 Web / Electron UI 发起任务，两端经统一 RPC（local/remote transport 解耦）进入 Server Core。</div>',
+          '<div class="flow-step">② <strong>SessionManager 接管</strong>：Server Core 转交 SessionManager，先<strong>持久化 User Message</strong>——先落库再动手，ACK = 已可靠接收并持久化，不是回答完成。</div>',
+          '<div class="flow-step">③ <strong>AgentBackend</strong>：统一模型后端契约（chat/abort/redirect 等），根据配置选 Claude / Pi，上层不感知 Provider 差异。</div>',
+          '<div class="flow-step">④ <strong>BaseAgent 公共执行流程</strong>：解析 Skill → Skill 校验 → 注册 prerequisite → 构建 branch/transferred context → 构建 Skill directive → 得到 effectiveMessage → 调 chatImpl()。</div>',
+          '<div class="flow-step">⑤ <strong>具体模型</strong>：chatImpl 落到 ClaudeAgent（接 Claude SDK）或 PiAgent（进程外 JSONL + 工具代理回主进程）。</div>',
+          '<div class="flow-step">⑥ <strong>Agent Loop + 工具权限</strong>：模型决定需要 Tool → Tool Call 先过 <strong>PermissionManager</strong>：Allow 直接执行 / Ask 发 permission_request 到前端等用户确认 / Deny 拒绝；无法继续则发 error。</div>',
+          '<div class="flow-step">⑦ <strong>Tool Execute</strong>：通过的工具经统一能力层执行（McpClientPool → MCP/API/Local），结果以 <strong>Tool Result 重新回到模型</strong>，继续下一轮推理——直到不再需要 Tool → 最终输出。</div>',
+          '<div class="flow-step">⑧ <strong>Adapter 统一事件</strong>：Claude/Pi 的 Provider 原始事件经 Adapter（ClaudeEventAdapter/PiEventAdapter）转换为统一 <strong>AgentEvent</strong>（status/text_delta/tool_start/permission_request/tool_result/complete...）。</div>',
+          '<div class="flow-step">⑨ <strong>RPC 回推双端</strong>：AgentEvent → RPC Push → Web / Electron，两套 UI 只消费一套事件，增量渲染一致；事件带 seq/lastSeenSeq + sequence_ack，断线按通信状态恢复、不盲目重跑。</div>',
+          '<div class="flow-step">⑩ <strong>会话持久化</strong>：运行时 Message 不落盘，持久化 StoredMessage 逐步写盘，可恢复。</div>',
+          '<strong>口诀</strong>：UI → RPC → SessionManager(先落库) → AgentBackend → BaseAgent → 模型 → Tool/Permission → AgentEvent(Adapter) → RPC 回推。'
+        ],
+        subs: [
+          { q: '工具在这一链路里是线性一次，还是循环？（动机刀）', ans: ['循环——Agent Loop：Tool Result 会重新回到模型，模型继续推理判断"是否还需要 Tool"，需要就再走 PermissionManager。不是"调一次工具就结束"。'] },
+          { q: '权限在链路里卡在哪一层？Ask 会怎样？（边界刀）', ans: ['卡在"模型意图"和"真正执行"之间：模型只提出 Tool Call，PermissionManager 决定 Allow/Ask/Deny。Ask → 发 permission_request 事件 → 前端 → 用户确认 → 回传再放行。Prompt 不是最终安全边界。'] },
+          { q: '换模型具体怎么做到不改前端？（动机刀）', ans: ['Claude/Pi 的差异被 AgentBackend + Adapter 收敛：后端差异进 BaseAgent/具体 Agent，事件差异由 Adapter 转成统一 AgentEvent——前端和 RPC 层只认一套事件模型，换模型=换 Backend 配置。'] },
+          { q: '先持久化用户消息有什么深意？ACK 是什么意思？（边界刀）', ans: ['先持久化=先落库再动手（与承接端四账本同哲学）。ACK 的含义是"消息已可靠接收并持久化"，不是"模型已完成回答"——这点答错就会被追穿。'] }
+        ],
+        principle: '整条链路的本质是"模型负责理解和决策，Runtime 负责执行和控制"：Adapter 统一模型事件、RPC 统一多端通信、Tool/MCP 统一外部能力、PermissionManager 控制真正执行——四个变化维度全被隔离在边界里。'
+      },
+      { tag: 'Q1', q: '为什么自己抽象 AgentBackend，不直接用现成编排框架？',
+        ans: [
+          '<strong>简答</strong>：需求是"换模型不改前端"——现成框架把模型、编排、UI 绑在一起，而我要先把"模型后端"这一维独立出来收敛成一个流式事件接口。',
+          '<strong>展开</strong>：Claude 与 Pi 的差异在事件模型、子进程通信、工具代理三处，收敛后界面只认一种事件；调模型、调推理强度（Thinking Level）都不动页面。',
+          '<strong>诚实答</strong>：不是重新造编排引擎——执行循环复用 Pi Agent Runtime，我做的是应用侧的多后端适配层。'
+        ],
+        subs: [
+          { q: '当时只有 Claude 一个后端，抽象是不是过度设计？（动机刀）', ans: ['这是 Agent 平台型架构：承诺"换模型不改前端"，稳定维度（上层调用方式）和可变维度（Provider 实现）必须提前拆开；新增模型=新增 Backend。判据不是"现在几个模型"，是"未来会不会加"。'] },
+          { q: 'AgentBackend 和 BaseAgent 什么关系，会不会重复？（边界刀）', ans: ['三层：AgentBackend=统一契约（chat/abort/redirect/destroy）、BaseAgent=公共实现（Skill 解析、前置条件、分支上下文注入、消息重写）、具体 Agent=Provider 差异（chatImpl 落到 ClaudeAgent/PiAgent）。契约层和实现层分开。'] },
+          { q: '直接用现成 Agent 框架（LangChain 之类）不行吗？（替代刀）', ans: ['现成框架绑定的是"模型+编排+UI"整体栈，要独立的是"模型后端"这一维；且执行循环已复用 Pi Runtime，不需要再引入一整套编排框架。'] }
+        ] },
+      { tag: 'Q2', q: 'AgentEvent 为什么要做成可辨识联合类型？',
+        ans: [
+          '<strong>简答</strong>：双端要复用同一份渲染逻辑，事件类型必须在类型系统里就是封闭集合——文本增量、工具启停、权限请求、错误、完成各成一种，渲染层 switch 每个分支都处理，编译期穷尽。',
+          '<strong>展开</strong>：事件驱动比"直接返回字符串"好在哪——工具进行中的中间态、权限请求的交互态、错误的恢复态都能表达。'
+        ],
+        subs: [
+          { q: '为什么不用字符串 type + 任意 payload？（动机刀）', ans: ['用字符串+any 时，渲染层 switch 少写一个分支编译期不报错、运行时才崩；可辨识联合让"每种事件有哪些字段、对应什么渲染"在类型系统里锁定——把"双端漂移"从运行时错误提前到编译期。'] },
+          { q: 'AgentEvent 和 RPC 是不是一回事？（边界刀）', ans: ['不是：AgentEvent=事件长什么样（统一事件模型），RPC=双端怎么通信（传输载体）。Provider→Adapter→AgentEvent→RPC Push→双端。别答混。'] }
+        ] },
+      { tag: 'Q3', q: '工具权限为什么不信提示词？',
+        ans: [
+          '<strong>简答</strong>：提示词是概率约束，模型可以被打动；权限走代码硬控——PermissionManager 统一评估（Claude/Pi 双后端共用 evaluateToolCall()）+ runPreToolUseChecks() 六步管线二次把关。"模型负责提出动作，权限系统决定动作能不能执行。"',
+          '<strong>展开</strong>：三档模式 safe（Explore 只读）/ ask（Ask to Edit 危险操作提问）/ allow-all（Execute 自动执行）；DANGEROUS_COMMANDS（rm/sudo/chmod/git push 等）在 ask 模式永远弹审批、白名单配置绕不过；safe 模式硬编码 block Write/Edit 等写工具。'
+        ],
+        subs: [
+          { q: '权限判断到底看什么，只看工具名吗？（动机刀）', ans: ['不是：判断要素=当前会话 permission mode + 工具名 + 工具输入 + 策略/白名单。典型是 Bash 不能只看 toolName，还要解析 command 的管道、重定向、命令替换、潜在危险命令；API 按 HTTP 方法分风险。'] },
+          { q: '用户把模式切到 allow-all，是不是就完全放开？（边界刀）', ans: ['不是"完全"：allow-all 只减少交互式确认，DANGEROUS_COMMANDS 与硬编码 block 仍是代码级不可绕过——模式是速度/安全旋钮，不是关安全总闸。'] },
+          { q: '为什么不在服务端把所有工具执行都套一层人工审批？（替代刀）', ans: ['全量审批=每个普通操作都要打断，运营没法干活；安全与效率该分层：默认走策略裁决，仅敏感/未知名单弹审批。错位的是"一刀切"，不是审批本身。'] }
+        ] },
+      { tag: 'Q4', q: 'Electron IPC 和 WebSocket 为什么要统一 RPC？',
+        ans: [
+          '<strong>简答</strong>：本地（IPC）与远程（WebSocket）两条传输，逻辑各写一套双端行为必然漂移；统一 RPC 之后，同一套会话、文件、模型连接逻辑双端复用。',
+          '<strong>展开</strong>：怎么防漂移——契约一致性测试校验通道名、参数与返回结构（Channel Map ↔ ElectronAPI 对齐），把漂移拦在开发期。'
+        ],
+        subs: [
+          { q: '逻辑各写一套，漂移具体长什么样？（动机刀）', ans: ['典型事故：IPC 侧前端 API、IPC 通道、后端 handler 三处各自演进；Web 端同样三处——两端对同一接口的入参、返回结构不一致，渲染行为跟着不一致。Q7 的流式渲染双端不一致 bug 就是现实版。'] },
+          { q: '契约测试是运行时强校验吗？（边界刀）', ans: ['契约测试拦在开发期（CI/测试阶段）；运行时另有 seq/sequence_ack 等保障。分层：共享 TS 类型管编译期、契约测试管开发期、运行时校验管运行期——三层叠加防漂移。'] }
+        ] },
+      { tag: 'Q5', q: 'MCP 在你项目里解决了什么？',
+        ans: [
+          '<strong>简答</strong>：接企业内部知识库、模板等系统时，方式散、凭据权限各配一套——MCP 把工具/资源/提示标准协议化，统一能力接入层把 MCP、API、本地数据都转成 Agent 可调用工具，凭据统一管理。',
+          '<strong>展开</strong>：MCP vs Function Calling——FC 是模型决定调哪个函数，MCP 是把工具/资源/提示标准协议化，按权限动态挂载与隔离。'
+        ],
+        subs: [
+          { q: '直接写 API 客户端不行吗？为什么非要 MCP？（替代刀）', ans: ['直面 N×M 问题：N 种外部系统 × M 个接入端，每种都手写接入，方式凭据权限各配一套；MCP 把"外部能力怎么被发现、描述、连接、调用"标准化，加系统=加一个 MCP 适配。'] },
+          { q: '接入多个 MCP，工具同名冲突怎么办？（边界刀）', ans: ['Proxy Tool Name 命名空间：对外形如 mcp__sourceSlug__toolName（如 mcp__github__search），保证全局唯一 Tool Identity；内部保留原始 Tool 语义——对外兼容、对内不失真。'] },
+          { q: '为什么不让每个 Agent 自己维护 MCP 连接？（边界刀）', ans: ['否则每个后端都要重复实现连接管理、认证、Tool Discovery、Cache、Routing；抽成 McpClientPool 统一承担，Claude/Pi 共用一条外部能力路径——和 AgentBackend 是同一个"把变化收敛到边界里"的思想。'] }
+        ] },
+      { tag: 'Q6', q: '多名运营并行使用，怎么防互相污染？',
+        ans: [
+          '<strong>简答</strong>：按会话隔离工作区（Session/Workspace 边界），会话管生命周期、工作目录、偏好与工具上下文——并行起草互不干扰。',
+          '<strong>展开</strong>：跨项目呼应——这套隔离思想与经历一的 Profile/Workspace/Session 三层同源，先在内容生产端验证，后在承接端升级。'
+        ],
+        subs: [
+          { q: '隔离到什么粒度才算够？（动机刀）', ans: ['两层：Session 管生命周期与运行时上下文（工作目录、偏好、工具上下文、持久化消息），Workspace 管文件与知识边界；工具默认落在本会话工作区——写文件不会越界到别人的目录。'] },
+          { q: '运行时状态和持久化状态怎么分开？（边界刀）', ans: ['运行时 Message（带 isStreaming 等临时态）不落盘；持久化 StoredMessage 才写入——JSONL 按行追加、可恢复。存储与运行时都按会话分治。'] },
+          { q: '这套隔离和经历一的三层模型是什么关系？（贡献刀）', ans: ['方法论同源：先在内容生产端验证"会话/工作区隔离"，后在承接端升级成 Profile/Workspace/Runtime Session 三层的多租户版——同一思想两次落地，串成能力演进线。'] }
+        ] },
+      { tag: 'Q7', q: '最难排查的 bug？',
+        ans: [
+          '<strong>STAR</strong>：现象是流式渲染在双端表现不一致 → 复现固定输入重放 → 看 AgentEvent 流记录，定位到两套渲染逻辑对同一事件的中间态处理不同 → 根因是双端事件处理各自演进、没有契约约束 → 修复是统一事件类型 + 契约一致性测试把通道对齐拦在开发期。',
+          '<strong>点题</strong>：可观测性是排查前提——事件流本身就是 Trace。'
+        ],
+        subs: [
+          { q: '怎么保证一定能复现？（边界刀）', ans: ['固定输入+固定事件序列重放：AgentEvent 流有完整记录（可辨识联合的好处——每种事件可序列化可回放），把两端渲染函数接到同一份事件序列上跑，差异在哪个分支立刻可见。'] },
+          { q: '为什么选契约测试而不是更重的 e2e？（替代刀）', ans: ['e2e 只覆盖几条主路径、跑得慢、只能证明"测过的路径没崩"；契约测试逐通道逐参数断言，把漂移精确到"哪一层哪个字段变了"——一个拦开发期、一个验证集成交互。'] }
+        ] },
+      { tag: 'Q8', q: '如果重做，会改什么？',
+        ans: ['<strong>简答</strong>：① 契约测试从第一天就上，不等第一次漂移；② 权限粒度从工具级细化到参数级（路径白名单）；③ 给运营侧加使用反馈回流（bad case 驱动人设与模板迭代）。'],
+        subs: [
+          { q: '这三条的优先级依据是什么？（动机刀）', ans: ['按"出问题概率 × 成本"排：契约漂移是已发生的事故（Q7）→ 最高优先；参数级权限把"危险命令"堵得更死 → 安全纵深；反馈回流是产品闭环，短期不致命但决定能不能持续迭代。'] },
+          { q: '参数级权限会不会太严格？把人困在白名单里？（替代刀）', ans: ['会，所以设计成渐进放开：默认路径白名单内放行，白名单外走 ask 弹确认，运营确认过的路径进会话级 always allow——安全与效率用会话记忆动态平衡。'] }
+        ] },
+      { tag: 'Q9', q: '进阶：BaseAgent / JSONL / 系统提示词 / Token 冷却？',
+        ans: [
+          '<strong>BaseAgent 为什么用模板方法</strong>：技能解析、前置条件注册、分支上下文注入、消息重写这些 turn 前置逻辑是所有后端共享的，放基类；具体模型调用留给 ClaudeAgent/PiAgent 子类——避免每个后端重复实现。',
+          '<strong>会话为什么用 JSONL</strong>：Agent 任务是流式、长时间、多事件的，JSONL 适合按行追加和恢复；运行时 Message 与持久化 StoredMessage 分治——运行时状态不落盘。',
+          '<strong>系统提示词为什么动态构建</strong>：要结合权限模式、环境信息、用户偏好与项目上下文文件（AGENTS.md/CLAUDE.md）——不同工作区产生不同边界；通过缓存和大小限制控制膨胀。',
+          '<strong>Token Refresh 为什么要有冷却</strong>：端点异常时持续刷新会请求风暴；冷却限制失败重试频率——和 GroupQueue 的指数退避同一哲学：防重试风暴比快速恢复更重要。'
+        ] }
+    ]
+  },
+  /* ======================= 【跨项目串联 + 高压应对】 ======================= */
+  {
+    cls: 'warn', tag: '收尾', name: '跨项目串联 + 高压应对（两段通用）',
+    desc: '面试官问"两个项目关系"或"把你问穿"时用。',
+    nodes: [
+      { tag: 'X1', q: '两个项目没共享代码，凭什么说能力连续？',
+        ans: ['串的是方法，不是系统——统一抽象（IMChannel/AgentBackend/AgentEvent）、可靠性思维（四账本/幂等/fencing）、权限模型（Owner 门控/PermissionManager）三件事在两段里反复验证。闭环是业务上的：生产端物料进承接端分发。'],
+        subs: [
+          { q: '那"能力连续"是能力还是成果？（动机刀）', ans: ['说能力：三件事在不同复杂度场景各验证过一遍=方法论成立；成果是业务闭环，但不夸大成果连续性——系统不共享，共享的是做事方法。'] },
+          { q: '两段权限做法完全不同，怎么算连续？（边界刀）', ans: ['恰恰是连续的最佳证据：生产端防"AI 乱动"（工具执行拦截）、承接端防"人/渠道越权"（资源/命令/渠道三层收口）——同一问题根据威胁模型给不同解，说明是理解原理、不是背模板。能讲清差异，才证明真懂。'] },
+          { q: '如果只带一个方法去下一段实习，带哪个？（贡献刀）', ans: ['统一抽象（把变化的维度和不变的维度剥开）：它是两段里反复出现的第一性操作，也是可靠性/权限设计的前提。'] }
+        ] },
+      { tag: 'X2', q: '再给你一段新实习，先复用哪个方法？',
+        ans: ['先复用"统一抽象 + 幂等键设计"——任何新系统第一步是把变化的维度从不变的维度里剥出来。'],
+        principle: '抽象决定结构（先立边界，变化收敛进边界），幂等决定不崩（先落库再动手、不确定即冻结）。' },
+      { tag: 'H1', q: '被深挖到我没参与的层？', ans: ['「这块是项目里其他同学/整体平台承担的，我没法给您讲第一手细节，硬讲会失真。我能确认的是我的应用端跟它的接口边界是____；如果要补这块，我会从源码和当时的联调记录去核实。」'] },
+      { tag: 'H2', q: '被问穿源码细节（记不稳参数）？', ans: ['「具体参数我记不准了，不给您报一个可能错的数。我确定的设计事实是____（讲机制不讲数字）；参数级细节我可以现场推导它应该满足什么约束，比如退避上限必须小于租约时长这类。」'] },
+      { tag: 'H3', q: '被指出设计缺陷？', ans: ['「您说得对，这正是我知道的边界。现在的处理是____，生产上的演进方案是____。当时没直接上更强的方案是因为____（单机场景冲突概率低，YAGNI）。」'] },
+      { tag: 'H4', q: '完全不会的概念题？', ans: ['「这个我确实没接触过。我先还原一下您问的问题——是____对吧？我确定知道的是相邻的____；不确定的部分，如果是我做，我会先查____再验证____。」'] }
+    ]
+  }
+];
+</script>
+
+<script>
+(function () {
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function inline(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/`([^`]+)`/g,'<span class="mono">$1</span>');
+  }
+  function renderAns(n, cls) {
+    var html = '';
+    if (n.ans && n.ans.length) {
+      html += '<div class="ans">' + (n.ansLabel ? '<span class="lab">' + esc(n.ansLabel) + '</span>' : '');
+      n.ans.forEach(function (a) { html += (a.indexOf('<') === 0 ? a : '<p>' + inline(a) + '</p>'); });
+      html += '</div>';
+    }
+    if (n.subs && n.subs.length) {
+      html += '<div class="sublab">下钻追问</div>';
+      n.subs.forEach(function (s) { html += renderNode(s, cls); });
+    }
+    if (n.principle) { html += '<div class="principle">💡 ' + inline(n.principle) + '</div>'; }
+    return html;
+  }
+  function renderNode(n, cls) {
+    var open = n.open ? ' open' : '';
+    return '<div class="node ' + (cls || '') + open + '" data-node>'
+      + '<button class="q-btn" data-toggle aria-expanded="' + (n.open ? 'true' : 'false') + '">'
+      + '<span class="code">' + esc(n.tag || '→') + '</span>'
+      + '<span>' + inline(n.q) + '</span><span class="chev"></span></button>'
+      + '<div class="panel"><div class="panel-inner">' + renderAns(n, cls) + '</div></div></div>';
+  }
+  var html = '';
+  DATA.forEach(function (region) {
+    var cls = region.cls || '';
+    html += '<section class="region ' + cls + '">';
+    html += '<div class="region-head"><span class="tag">' + esc(region.tag) + '</span>'
+      + '<div class="name">' + esc(region.name) + '</div>'
+      + (region.desc ? '<div class="desc">' + esc(region.desc) + '</div>' : '') + '</div>'
+      + '<div class="region-body">' + region.nodes.map(function (n) { return renderNode(n, cls); }).join('') + '</div></section>';
+  });
+  document.getElementById('tree').innerHTML = html;
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-toggle]');
+    if (!btn) return;
+    var node = btn.closest('[data-node]');
+    if (!node) return;
+    var open = node.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  var themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function () {
+      var cur = document.documentElement.getAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+  }
+})();
+</script>
+</body>
+</html>
