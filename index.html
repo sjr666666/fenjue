@@ -245,6 +245,40 @@ article.md img { max-width: 100%; border-radius: 10px; }
 article.md strong { color: var(--brand-deep); }
 html[data-theme="dark"] article.md strong { color: #9CC5EC; }
 
+/* ===== 豪言豪语：渐进式披露 ===== */
+.disclosure-guide {
+  margin: 14px 0 18px; padding: 12px 14px;
+  background: var(--brand-soft); border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent);
+  border-radius: 10px; font-size: 12.5px; line-height: 1.7;
+}
+.disclosure-guide b { color: var(--brand-deep); }
+.progressive-item {
+  margin: 12px 0; background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
+  scroll-margin-top: 110px;
+}
+.progressive-item[open] { border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
+.progressive-item > summary {
+  list-style: none; cursor: pointer; padding: 12px 14px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 9px; align-items: center;
+  font-size: 15px; font-weight: 600;
+}
+.progressive-item > summary::-webkit-details-marker { display: none; }
+.progressive-item > summary::after {
+  content: "+"; grid-column: 1; grid-row: 1 / span 2; width: 24px; height: 24px;
+  display: grid; place-items: center; border-radius: 7px; background: var(--brand-soft); color: var(--brand);
+  font-size: 18px; font-weight: 400; line-height: 1;
+}
+.progressive-item[open] > summary::after { content: "−"; }
+.progressive-item > summary small { grid-column: 2; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.progressive-answer { padding: 0 14px 14px; border-top: 1px solid var(--border); }
+.progressive-answer > :first-child { margin-top: 12px; }
+.source-disclosure {
+  margin: 14px 0 2px; border-top: 1px dashed var(--border); padding-top: 4px;
+}
+.source-disclosure > summary { cursor: pointer; color: var(--muted); font-size: 12.5px; padding: 7px 0; }
+.source-disclosure[open] > summary { color: var(--brand); }
+
 /* ===== 上/下篇 ===== */
 .doc-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 30px; }
 .doc-nav a {
@@ -602,15 +636,72 @@ function postProcess(root) {
   });
   root.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
   root.querySelectorAll('h2, h3').forEach((h, i) => { if (!h.id) h.id = 'h-' + i; });
+  addProgressiveDisclosure(root);
+}
+
+function addProgressiveDisclosure(root) {
+  if (curDocId !== '14') return;
+  const section = [...root.querySelectorAll('h2')].find(h => h.textContent.startsWith('逐条：'));
+  if (!section) return;
+
+  const guide = document.createElement('div');
+  guide.className = 'disclosure-guide';
+  guide.innerHTML = '<b>三层复习</b>：先扫一页纸，追问时展开“我的回答”，需要推导和边界时再打开原话。';
+  section.insertAdjacentElement('beforebegin', guide);
+
+  let heading = section.nextElementSibling;
+  let number = 0;
+  while (heading && heading.tagName !== 'H2') {
+    if (heading.tagName !== 'H3') { heading = heading.nextElementSibling; continue; }
+    number += 1;
+    const title = heading.textContent;
+    const id = heading.id;
+    const content = [];
+    let cursor = heading.nextElementSibling;
+    while (cursor && cursor.tagName !== 'H2' && cursor.tagName !== 'H3') {
+      const next = cursor.nextElementSibling;
+      content.push(cursor);
+      cursor = next;
+    }
+
+    const sourceStart = content.findIndex(node => node.textContent.trim().startsWith('往里豪原话'));
+    const mineStart = content.findIndex(node => node.textContent.trim().startsWith('我的版'));
+    const source = sourceStart >= 0 && mineStart > sourceStart ? content.slice(sourceStart, mineStart) : [];
+    const answer = source.length ? content.slice(0, sourceStart).concat(content.slice(mineStart)) : content;
+
+    const item = document.createElement('details');
+    item.className = 'progressive-item';
+    item.id = id;
+    item.dataset.tocTitle = title;
+    const summary = document.createElement('summary');
+    summary.innerHTML = `<span>${number}. ${esc(title.replace(/^\d+\.\s*/, ''))}</span><small>展开我的回答与证据</small>`;
+    const body = document.createElement('div');
+    body.className = 'progressive-answer';
+    answer.forEach(node => body.appendChild(node));
+    if (source.length) {
+      const sourceDetails = document.createElement('details');
+      sourceDetails.className = 'source-disclosure';
+      const sourceSummary = document.createElement('summary');
+      sourceSummary.textContent = '查看观点来源的完整原话（非本人经历）';
+      sourceDetails.appendChild(sourceSummary);
+      source.forEach(node => sourceDetails.appendChild(node));
+      body.appendChild(sourceDetails);
+    }
+    item.append(summary, body);
+    heading.replaceWith(item);
+    heading = cursor;
+  }
 }
 
 /* ================= TOC ================= */
 function buildToc() {
   const list = $('#tocList');
-  const hs = document.querySelectorAll('#article h2, #article h3');
+  const hs = document.querySelectorAll('#article h2, #article h3, #article .progressive-item[data-toc-title]');
   let out = '';
   hs.forEach(h => {
-    out += `<a href="#${h.id}" class="${h.tagName === 'H3' ? 'lv3' : ''}" data-target="${h.id}">${esc(h.textContent)}</a>`;
+    const title = h.dataset.tocTitle || h.textContent;
+    const isItem = h.classList.contains('progressive-item');
+    out += `<a href="#${h.id}" class="${h.tagName === 'H3' || isItem ? 'lv3' : ''}" data-target="${h.id}">${esc(title)}</a>`;
   });
   list.innerHTML = out || '<a>本页无小标题</a>';
   list.querySelectorAll('a[data-target]').forEach(a => {
@@ -619,7 +710,10 @@ function buildToc() {
       closeToc();
       setTimeout(() => {
         const el = document.getElementById(a.dataset.target);
-        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 108, behavior: 'smooth' });
+        if (el) {
+          if (el.tagName === 'DETAILS') el.open = true;
+          window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 108, behavior: 'smooth' });
+        }
       }, 180);
     });
   });
