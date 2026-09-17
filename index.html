@@ -491,6 +491,28 @@ button, a { touch-action: manipulation; }
   background: var(--code-bg); color: var(--muted);
 }
 
+/* ===== Mermaid 加载中 / 降级 ===== */
+.mermaid-loading {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 20px 14px; text-align: left;
+}
+.mermaid-msg { font-size: 12.5px; color: var(--muted); }
+.mermaid-spin {
+  width: 15px; height: 15px; flex: 0 0 auto; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--brand);
+  animation: mermaid-spin .8s linear infinite;
+}
+@keyframes mermaid-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mermaid-spin { animation-duration: 2s; } }
+html[data-theme="dark"] .mermaid-spin { border-color: var(--border); border-top-color: var(--brand); }
+
+/* 降级块：说明 + 重试按钮 + 源码，保证内容永远可读 */
+.mermaid-error {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 12px; padding: 11px 13px;
+}
+.mermaid-error .mermaid-btn { margin-left: auto; }
+
 /* ===== 图表放大查看 ===== */
 .zoom-view { position: fixed; inset: 0; z-index: 81; background: var(--bg); display: none; flex-direction: column; }
 .zoom-view.on { display: flex; }
@@ -922,23 +944,60 @@ window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#zoomView
 
 /* ===== Mermaid 图表渲染 ===== */
 const MERMAID_SRC = './mermaid.min.js';
+const MERMAID_TIMEOUT_MS = 20000;   // 单次加载超时：卡住就重试，不让界面无限等
 let mermaidPromise = null;
 let mermaidSeq = 0;
-const mermaidSources = new Map();
 
-function loadMermaid() {
-  if (window.mermaid) return Promise.resolve(window.mermaid);
-  if (mermaidPromise) return mermaidPromise;
-  mermaidPromise = new Promise((resolve, reject) => {
+/* 加载一次，带超时（请求挂起时 onerror 不会触发，必须自己兜底） */
+function loadMermaidOnce() {
+  return new Promise((resolve, reject) => {
+    let settled = false;
     const s = document.createElement('script');
     s.src = MERMAID_SRC;
     s.async = true;
-    s.onload = () => window.mermaid ? resolve(window.mermaid) : reject(new Error('mermaid 未就绪'));
-    s.onerror = () => reject(new Error('mermaid.min.js 加载失败'));
+    s.dataset.mermaidLib = '1';
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      s.remove();
+      reject(new Error('加载超时'));
+    }, MERMAID_TIMEOUT_MS);
+    s.onload = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (window.mermaid) resolve(window.mermaid);
+      else reject(new Error('组件未就绪'));
+    };
+    s.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      s.remove();
+      reject(new Error('网络中断'));
+    };
     document.head.appendChild(s);
   });
-  mermaidPromise = mermaidPromise.catch(e => { mermaidPromise = null; throw e; });
+}
+
+/* 失败自动重试一次：移动网络抖动很常见 */
+function loadMermaid() {
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (!mermaidPromise) {
+    mermaidPromise = loadMermaidOnce()
+      .catch(() => loadMermaidOnce())
+      .catch(err => { mermaidPromise = null; throw err; });
+  }
   return mermaidPromise;
+}
+
+/* 空闲时预取：等真正打开含图文档时组件通常已就绪 */
+function prefetchMermaid() {
+  if (window.mermaid || mermaidPromise) return;
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (c && (c.saveData || /(^|-)2g/.test(c.effectiveType || ''))) return;  // 省流量模式不预取
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 1200));
+  idle(() => { loadMermaid().catch(() => {}); });
 }
 
 function mermaidTheme() {
@@ -958,29 +1017,91 @@ function mermaidTitleFor(el) {
   return '';
 }
 
+function mermaidLoadingHTML(text) {
+  return '<div class="mermaid-loading"><span class="mermaid-spin" aria-hidden="true"></span>'
+    + '<span class="mermaid-msg">' + esc(text) + '</span></div>';
+}
+
+/* 加载失败 / 绘制失败时的降级：永远让内容可读，并给一个重试入口 */
+function showMermaidFallback(holder, reason, isRenderError) {
+  holder.dataset.failed = reason || '未知原因';
+  const box = document.createElement('div');
+  box.className = 'mermaid-error';
+  box.textContent = (isRenderError ? '该图绘制失败' : '图表组件加载失败')
+    + '（' + (reason || '未知原因') + '）。'
+    + (isRenderError ? '' : '可点右侧按钮重试，或先看下方源码：');
+  if (!isRenderError) {
+    const btn = document.createElement('button');
+    btn.className = 'mermaid-btn';
+    btn.type = 'button';
+    btn.textContent = '重新加载';
+    btn.onclick = () => retryMermaid(holder);
+    box.appendChild(btn);
+  }
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.className = 'mermaid-src';
+  code.textContent = holder.dataset.mmd;
+  pre.appendChild(code);
+  holder.replaceChildren(box, pre);
+}
+
+/* 重新拉取组件并重画这一张图 */
+function retryMermaid(holder) {
+  mermaidPromise = null;
+  document.querySelectorAll('script[data-mermaid-lib]').forEach(s => s.remove());
+  holder.removeAttribute('data-done');
+  holder.removeAttribute('data-failed');
+  holder.innerHTML = mermaidLoadingHTML('正在重新加载图表…');
+  const root = holder.closest('#article') || document;
+  renderMermaid(root);
+}
+
 async function renderMermaid(root) {
-  const codes = [...root.querySelectorAll('pre > code.language-mermaid, pre > code.lang-mermaid')];
-  if (!codes.length) return;
-  const blocks = codes.map(code => {
+  // 排除降级块里的源码，避免重试时重复建容器
+  const codes = [...root.querySelectorAll('pre > code.language-mermaid, pre > code.lang-mermaid')]
+    .filter(code => !code.closest('.mermaid-block'));
+
+  const holders = [];
+  codes.forEach(code => {
     const pre = code.parentElement;
     const holder = document.createElement('div');
     holder.className = 'mermaid-block';
-    holder.innerHTML = '<div class="mermaid-loading">正在绘制图表…</div>';
+    holder.innerHTML = mermaidLoadingHTML('正在加载图表…');
     holder.dataset.title = mermaidTitleFor(pre);
     holder.dataset.mmd = code.textContent;
-    mermaidSources.set(holder.dataset.mmd, holder.dataset.title);
     const orphan = pre.nextElementSibling;
     if (orphan && orphan.classList && orphan.classList.contains('scroll-hint')) orphan.remove();
     pre.replaceWith(holder);
-    return holder;
+    holders.push(holder);
   });
+
+  // 上一次失败、尚未完成的图（重试路径）一并纳入
+  root.querySelectorAll('.mermaid-block[data-mmd]:not([data-done])').forEach(b => {
+    if (!holders.includes(b)) holders.push(b);
+  });
+  if (!holders.length) return;
+
+  // 加载期间显示已等待秒数，避免看起来像卡死
+  let waited = 0;
+  const setMsg = text => holders.forEach(h => {
+    const m = h.querySelector('.mermaid-msg');
+    if (m) m.textContent = text;
+  });
+  const ticker = setInterval(() => {
+    waited += 1;
+    setMsg('正在加载图表组件…已等待 ' + waited + ' 秒（首次约 1MB，之后会缓存）');
+  }, 1000);
 
   let mmd;
   try { mmd = await loadMermaid(); }
   catch (e) {
-    blocks.forEach(b => { b.innerHTML = '<div class="mermaid-error">图表组件加载失败（' + esc(e.message) + '），以下为源码：</div><pre><code>' + esc(b.dataset.mmd) + '</code></pre>'; });
+    clearInterval(ticker);
+    holders.forEach(h => showMermaidFallback(h, e.message, false));
     return;
   }
+  clearInterval(ticker);
+  setMsg('正在绘制图表…');
 
   try {
     mmd.initialize({
@@ -996,7 +1117,8 @@ async function renderMermaid(root) {
     });
   } catch (e) { /* initialize 失败不阻断，继续尝试 render */ }
 
-  for (const holder of blocks) {
+  for (const holder of holders) {
+    if (holder.dataset.done) continue;
     const idx = ++mermaidSeq;
     const title = holder.dataset.title || ('图表 ' + idx);
     try {
@@ -1013,6 +1135,8 @@ async function renderMermaid(root) {
       note.className = 'mermaid-note';
       note.textContent = '手机 / 平板：图宽超出屏幕时可左右滑动，或点“放大查看”。';
       holder.replaceChildren(wrap, view, note);
+      holder.dataset.done = '1';
+      holder.removeAttribute('data-failed');
       const svgEl = view.querySelector('svg');
       if (svgEl) {
         svgEl.dataset.title = title;
@@ -1029,18 +1153,11 @@ async function renderMermaid(root) {
       };
       wrap.querySelector('[data-zoom]').onclick = () => openZoom(svgEl, title);
     } catch (e) {
-      holder.replaceChildren(Object.assign(document.createElement('div'), {
-        className: 'mermaid-error',
-        innerHTML: '该图渲染失败（' + esc(e.message || '语法错误') + '），以下为源码：'
-      }));
-      const pre = document.createElement('pre');
-      const code = document.createElement('code');
-      code.textContent = holder.dataset.mmd;
-      pre.appendChild(code);
-      holder.appendChild(pre);
+      showMermaidFallback(holder, e.message || '语法错误', true);
     }
   }
 }
+
 
 /* 切换主题后重画图表，保证配色跟随主题 */
 let mermaidRerenderTimer = null;
@@ -1179,6 +1296,9 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 render();
+
+/* 空闲时预取图表组件：首次打开含图文档即可直接绘制 */
+prefetchMermaid();
 </script>
 </body>
 </html>
