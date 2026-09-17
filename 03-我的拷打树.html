@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4B3FE3">
+<meta name="color-scheme" content="light dark">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <title>03 · 我的拷打树（交互版 · 双项目）</title>
 <style>
 :root {
@@ -58,6 +63,7 @@ h1 { font-size: 18px; margin: 0; font-weight: 600; }
   border: 1px solid var(--border); border-radius: 6px;
   padding: 1px 7px; background: var(--surface-muted); font-family: var(--mono);
 }
+
 /* ===== 大块（每个项目一块） ===== */
 .region { margin: 24px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .region-head {
@@ -127,6 +133,52 @@ html[data-theme="dark"] .region.warn .tag { color: #FBD38D; }
 .flow-step { margin: 4px 0; padding-left: 2px; }
 .sublab { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 8px 0 4px; padding-left: 2px; }
 @media print { .theme-btn, .hint kbd { display: none; } }
+/* ===== 移动端 / 平板适配（2026-09-17） ===== */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button { touch-action: manipulation; }
+
+@media (max-width: 560px) {
+  .wrap { padding: 16px 12px calc(48px + env(safe-area-inset-bottom)); }
+  header.top { padding: calc(12px + env(safe-area-inset-top)) 0 12px; }
+  h1 { font-size: 16.5px; }
+  .sub { font-size: 11.5px; }
+  .hint { font-size: 11.5px; padding: 8px 0 12px; }
+  .region { margin: 16px 0; border-radius: 11px; }
+  .region-head { padding: 13px 14px; }
+  .region-head .name { font-size: 15px; }
+  .region-head .desc { font-size: 11.5px; }
+  .region-body { padding: 11px 11px 13px; }
+  .node > .q-btn { padding: 11px 12px; font-size: 14px; gap: 8px; }
+  .panel-inner { padding-left: 10px; }
+  .ans { padding: 10px 12px; }
+  .ans p, .ans li { font-size: 13.5px; }
+  .principle { font-size: 11.5px; }
+  .theme-btn { padding: 9px 12px; }
+}
+
+/* 手机端嵌套缩进压缩（2026-09-17） */
+@media (max-width: 560px) {
+  /* 逐层缩进会叠加，深层正文一行放不下 20 字，故收窄每级缩进 */
+  .panel-inner { padding-left: 6px; }
+  .node .node { margin-left: 0; }
+  .ans { padding: 9px 10px; }
+  .ans ul, .ans ol { padding-left: 16px; }
+  .sublab { margin: 6px 0 3px; }
+  .region-body { padding: 10px 8px 12px; }
+  .principle { padding: 8px 10px; }
+}
+
+@media (min-width: 700px) {
+  .wrap { max-width: 820px; padding: 24px 24px 60px; }
+  body { font-size: 14.5px; }
+  .node > .q-btn { padding: 12px 16px; }
+  .ans p { line-height: 1.78; }
+}
+
+@media (pointer: coarse) {
+  .node > .q-btn { min-height: 46px; }
+  .theme-btn { min-height: 40px; }
+}
 </style>
 </head>
 <body>

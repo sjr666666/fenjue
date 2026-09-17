@@ -1,0 +1,18 @@
+{
+  "name": "我的焚诀 · 面试作战手册",
+  "short_name": "我的焚诀",
+  "description": "Agent 开发面试作战手册：画像、故事、拷打树与项目内参。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4F6F9",
+  "theme_color": "#3A7BC8",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "apple touch icon" }
+  ]
+}

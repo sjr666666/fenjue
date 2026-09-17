@@ -1,3 +1,17 @@
 *.zip
 sync.ps1
 tools/
+
+# 本地工作稿（含未脱敏信息，只在本机保留）
+_work/
+_scratch/
+
+# 脱敏词表：含真名等映射，绝不进公开仓库
+.sanitize-map.txt
+
+# 临时补丁脚本
+_patch_*.py
+_fix*.py
+
+# 第三方内容：观点来源原文，仅本机保留
+往里豪.pdf
