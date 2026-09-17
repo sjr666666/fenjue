@@ -505,6 +505,20 @@ button, a { touch-action: manipulation; }
   -webkit-overflow-scrolling: touch; display: grid; place-items: center;
 }
 .zoom-body svg { display: block; height: auto; max-width: none; }
+/* 放大查看：图小于容器时居中，宽于容器时左端可达、可横滑 */
+/* 不用 flex/grid 居中：那种居中会把溢出部分裁掉，导致左侧无法滚动到 */
+.zoom-body { display: block; }
+/* 手机上工具条分两行：标题一行、按钮一行 */
+@media (max-width: 560px) {
+  .zoom-bar { flex-wrap: wrap; row-gap: 8px; padding-bottom: 10px; }
+  .zoom-bar b { flex: 1 1 100%; }
+  .zoom-bar .spacer { display: none; }
+  .zoom-bar .mermaid-btn { flex: 1 1 0; min-width: 0; padding: 9px 6px; }
+}
+.zoom-body svg { flex: 0 0 auto; margin: 0 auto; }
+/* 手机上让标题可收缩，避免按钮换行 */
+.zoom-bar b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zoom-bar .spacer { flex: 0 0 auto; }
 
 /* 加载与错误 */
 .loading { text-align: center; padding: 60px 0; color: var(--muted); font-size: 13px; }
@@ -555,7 +569,7 @@ html[data-theme="dark"] .error-box { border-color: #7A3B33; color: #E8A79B; }
     <b id="zoomTitle" style="color:var(--text)">图表</b>
     <span class="spacer"></span>
     <button class="mermaid-btn" id="zoomOut" aria-label="缩小">－</button>
-    <button class="mermaid-btn" id="zoomReset">原始大小</button>
+    <button class="mermaid-btn" id="zoomReset" title="恢复原始大小">1:1</button>
     <button class="mermaid-btn" id="zoomIn" aria-label="放大">＋</button>
     <button class="mermaid-btn" id="zoomClose">关闭</button>
   </div>
