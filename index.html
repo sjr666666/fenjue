@@ -261,6 +261,15 @@ html[data-theme="dark"] article.md strong { color: #9CC5EC; }
   border-radius: 10px; font-size: 12.5px; line-height: 1.7;
 }
 .disclosure-guide b { color: var(--brand-deep); }
+/* ===== 面试 QA 手册：背题模式 ===== */
+.qa-mode-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qa-mode-bar span { flex: 1 1 160px; }
+.qa-mode-bar button {
+  flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--border));
+  color: var(--brand-deep); background: var(--card); border-radius: 999px;
+  padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; min-height: 32px;
+}
+.qa-mode-bar button.off { background: transparent; color: var(--muted); }
 .progressive-item {
   margin: 12px 0; background: var(--card); border: 1px solid var(--border);
   border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
@@ -325,6 +334,7 @@ html[data-theme="dark"] article.md strong { color: #9CC5EC; }
   color: var(--text); font-size: 13.5px;
 }
 .toc-list a:active, .toc-list a:hover { background: var(--brand-soft); }
+.toc-list a.lv1 { font-weight: 600; color: var(--brand-deep); margin-top: 8px; font-size: 13px; }
 .toc-list a.lv3 { padding-left: 30px; color: var(--muted); font-size: 12.5px; }
 
 footer.app { text-align: center; color: var(--muted); font-size: 11.5px; padding: 26px 0 6px; }
@@ -630,6 +640,7 @@ const DOCS = [
   { id: '02', file: '02-我的Bullet与故事.md', num: '02', title: '我的 Bullet 与故事', cat: 'core', desc: '事实卡 → 四段式 Bullet → 30s/90s/3min 三档口述 + 白板架构图讲法' },
   { id: '14', file: '14-豪言豪语（匹配我的简历版）.md', num: '14', title: '豪言豪语（简历版）', cat: 'core', badge: '红线必读', desc: '往里豪观点逐条改造为我的口径，每句挂真证据' },
   { id: '15', file: '15-Agent开发18题回答.md', num: '15', title: 'Agent 开发 18 题回答', cat: 'core', badge: '18题', desc: '用焚诀与简历口径回答的 18 个 Agent 开发问题，标注了 ASR / OpenClaw 的资料边界' },
+  { id: '17', file: '17-面试QA手册.md', num: '17', title: 'Agent 面试 QA 手册', cat: 'core', badge: 'QA 手册', desc: 'AI Agent 岗位常见面试 QA：简洁回答 + 深入理解拆解，★ 题优先准备' },
   { id: '03', file: '03-我的拷打树.md', num: '03', title: '我的拷打树', cat: 'grind', badge: '86 节点', desc: '先过雷点区 → 加时赛深挖区 → 高压应对区，含交互版', interactive: '03-我的拷打树.html' },
   { id: '07', file: '07-我的项目内参.md', num: '07', title: '我的项目内参', cat: 'grind', desc: 'M1-M15 + C1-C13 共 28 个 R 点速查，带降级链与证据索引' },
   { id: '13', file: '13-Agent系统选型原则与演进.md', num: '13', title: 'Agent 选型原则与演进', cat: 'grind', desc: '被问"为什么用这个方案"时：选型原则 + 真实演进思考' },
@@ -1189,7 +1200,9 @@ function postProcess(root) {
   });
   root.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
   root.querySelectorAll('h2, h3').forEach((h, i) => { if (!h.id) h.id = 'h-' + i; });
+  root.querySelectorAll('h1').forEach((h, i) => { if (!h.id) h.id = 'h1-' + i; });
   addProgressiveDisclosure(root);
+  addQADisclosure(root);
 
   // 先渲染图表：mermaid 源码 pre 会被替换成图表容器，
   // 若先挂横滑提示会留下孤立提示节点
@@ -1254,14 +1267,60 @@ function addProgressiveDisclosure(root) {
 }
 
 /* ================= TOC ================= */
+/* 17-面试QA手册：背题模式（只看问题，点卡片展开回答） */
+function addQADisclosure(root) {
+  if (curDocId !== '17') return;
+  const headings = [...root.querySelectorAll('h2')].filter(h => /^Q\d/.test(h.textContent.trim()));
+  if (!headings.length) return;
+
+  const bar = document.createElement('div');
+  bar.className = 'disclosure-guide qa-mode-bar';
+  bar.innerHTML = `<b>背题模式</b><span>只看问题，点卡片展开回答——先自己答一遍，再对照「简洁回答」与「深入理解」。</span><button id="qaModeBtn" type="button"></button>`;
+  headings[0].insertAdjacentElement('beforebegin', bar);
+
+  function applyMode(on) {
+    root.querySelectorAll('details.qa-item').forEach(d => { d.open = !on; });
+    const btn = bar.querySelector('#qaModeBtn');
+    btn.textContent = on ? '模式：背题（收起回答）' : '模式：阅读（全部展开）';
+    btn.classList.toggle('off', !on);
+    store.set('qa-mode-17', on);
+  }
+
+  headings.forEach(h => {
+    const title = h.textContent.trim();
+    const id = h.id;
+    const nodes = [];
+    let cursor = h.nextElementSibling;
+    while (cursor && cursor.tagName !== 'H1' && cursor.tagName !== 'H2') {
+      const next = cursor.nextElementSibling;
+      nodes.push(cursor);
+      cursor = next;
+    }
+    const item = document.createElement('details');
+    item.className = 'progressive-item qa-item';
+    item.id = id;
+    item.dataset.tocTitle = title;
+    const summary = document.createElement('summary');
+    summary.innerHTML = `<span>${esc(title)}</span><small>点击展开：简洁回答 + 深入理解</small>`;
+    const body = document.createElement('div');
+    body.className = 'progressive-answer';
+    nodes.forEach(n => body.appendChild(n));
+    item.append(summary, body);
+    h.replaceWith(item);
+  });
+
+  applyMode(store.get('qa-mode-17', true));
+  bar.querySelector('#qaModeBtn').addEventListener('click', () => applyMode(!store.get('qa-mode-17', true)));
+}
+
 function buildToc() {
   const list = $('#tocList');
-  const hs = document.querySelectorAll('#article h2, #article h3, #article .progressive-item[data-toc-title]');
+  const hs = document.querySelectorAll('#article h1, #article h2, #article h3, #article .progressive-item[data-toc-title]');
   let out = '';
   hs.forEach(h => {
     const title = h.dataset.tocTitle || h.textContent;
     const isItem = h.classList.contains('progressive-item');
-    out += `<a href="#${h.id}" class="${h.tagName === 'H3' || isItem ? 'lv3' : ''}" data-target="${h.id}">${esc(title)}</a>`;
+    out += `<a href="#${h.id}" class="${h.tagName === 'H1' ? 'lv1' : (h.tagName === 'H3' || isItem ? 'lv3' : '')}" data-target="${h.id}">${esc(title)}</a>`;
   });
   list.innerHTML = out || '<a>本页无小标题</a>';
   list.querySelectorAll('a[data-target]').forEach(a => {
