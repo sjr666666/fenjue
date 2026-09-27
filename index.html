@@ -270,6 +270,16 @@ html[data-theme="dark"] article.md strong { color: #9CC5EC; }
   padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; min-height: 32px;
 }
 .qa-mode-bar button.off { background: transparent; color: var(--muted); }
+.qa-speak {
+  margin: 12px 0; padding: 10px 14px;
+  background: var(--brand-soft); border-left: 3px solid var(--brand); border-radius: 8px;
+}
+.qa-speak strong:first-child { color: var(--brand-deep); }
+.qa-insight {
+  margin: 12px 0 4px; padding: 2px 14px; color: var(--muted);
+  border-left: 3px solid var(--border); font-size: 13.5px;
+}
+.qa-insight strong:first-child { color: var(--muted); }
 .progressive-item {
   margin: 12px 0; background: var(--card); border: 1px solid var(--border);
   border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
@@ -847,6 +857,25 @@ async function runSearch(q) {
 }
 
 /* ================= 文档页 ================= */
+function preprocessBold(raw) {
+  const stash = [];
+  const keep = s => '\u0001' + (stash.push(s) - 1) + '\u0001';
+  const text = raw
+    .replace(/1\*\*-\*{4}-\*{4}/g, () => keep('1**-****-****'))
+    .replace(/\*{4}@qq\.com/g, () => keep('****@qq.com'))
+    .split(/(```[\s\S]*?```)/g).map(seg => {
+      if (seg.startsWith('```')) return seg;
+      return seg.split(/(`[^`\n]*`)/g).map(part => {
+        if (part.startsWith('`')) return part;
+        return part
+          .replace(/\*\*\s+([^*\n]+?)\s*\*\*/g, '<strong>$1</strong>')
+          .replace(/\*\*([^*\n]+?)\*\*(?=[\u4e00-\u9fffA-Za-z0-9])/g, '<strong>$1</strong>')
+          .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      }).join('');
+    }).join('');
+  return { text, restore: h => h.replace(/\u0001(\d+)\u0001/g, (_, i) => stash[i]) };
+}
+
 async function showDoc(id) {
   savePos();
   const d = docById(id);
@@ -863,7 +892,10 @@ async function showDoc(id) {
     app.innerHTML = `<div class="error-box">加载失败（${esc(e.message)}）。若在本地直接打开本文件，浏览器会拦截文件读取——请通过 http 访问，或部署在 GitHub Pages 上使用。</div>`;
     return;
   }
-  const html = marked.parse(raw);
+  // marked 的加粗 flanking 判定按西文空格分词设计，中文语境大量漏判（**xx：**后接字母、
+  // 表格单元格加粗、全角引号结尾等）；先预转换成 <strong>，脱敏字面量与代码块/行内代码不动
+  const { text, restore } = preprocessBold(raw);
+  const html = restore(marked.parse(text));
   const idx = DOCS.findIndex(x => x.id === id);
   const prev = DOCS[idx - 1], next = DOCS[idx + 1];
   const banner = d.interactive
@@ -1305,6 +1337,12 @@ function addQADisclosure(root) {
     const body = document.createElement('div');
     body.className = 'progressive-answer';
     nodes.forEach(n => body.appendChild(n));
+    // 「简洁回答」与「深入理解」视觉分块：口述稿高亮，理解段弱化
+    [...body.children].forEach(p => {
+      const t = p.textContent.trim();
+      if (t.startsWith('简洁回答')) p.classList.add('qa-speak');
+      else if (t.startsWith('深入理解')) p.classList.add('qa-insight');
+    });
     item.append(summary, body);
     h.replaceWith(item);
   });
