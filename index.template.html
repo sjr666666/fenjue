@@ -205,7 +205,7 @@ mark { background: var(--mark-bg); color: inherit; border-radius: 3px; padding: 
 .interactive-banner .go { display: inline-flex; align-items: center; gap: 3px; }
 
 /* ===== Markdown 正文 ===== */
-article.md { padding-top: 14px; font-size: var(--doc-size); overflow-x: clip; }
+article.md { padding-top: 14px; font-size: var(--doc-size); line-height: 1.8; overflow-x: clip; }
 article.md p, article.md li, article.md blockquote, article.md h1, article.md h2,
 article.md h3, article.md h4, article.md td, article.md th, article.md dd { overflow-wrap: anywhere; }
 article.md > :first-child { margin-top: 0; }
@@ -220,9 +220,9 @@ article.md h2 {
 }
 article.md h3 { font-size: 15px; margin: 20px 0 8px; scroll-margin-top: 110px; }
 article.md h4 { font-size: 14px; margin: 16px 0 6px; color: var(--muted); }
-article.md p { margin: 9px 0; }
+article.md p { margin: 11px 0; }
 article.md ul, article.md ol { margin: 9px 0; padding-left: 22px; }
-article.md li { margin: 4px 0; }
+article.md li { margin: 5px 0; }
 article.md li::marker { color: var(--brand); }
 article.md li.task-list-item { list-style: none; margin-left: -18px; }
 article.md li.task-list-item input { margin-right: 7px; accent-color: var(--brand); width: 15px; height: 15px; vertical-align: -2px; }
@@ -245,7 +245,7 @@ article.md pre {
 }
 article.md pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.7; }
 .table-wrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; }
-article.md table { border-collapse: collapse; width: 100%; font-size: 13px; }
+article.md table { border-collapse: collapse; width: 100%; font-size: 13px; line-height: 1.65; }
 article.md th, article.md td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 article.md th { background: var(--brand-soft); font-weight: 600; white-space: nowrap; }
 article.md tr:last-child td { border-bottom: none; }
@@ -271,13 +271,17 @@ html[data-theme="dark"] article.md strong { color: #9CC5EC; }
 }
 .qa-mode-bar button.off { background: transparent; color: var(--muted); }
 .qa-speak {
-  margin: 12px 0; padding: 10px 14px;
+  margin: 12px 0; padding: 12px 16px;
   background: var(--brand-soft); border-left: 3px solid var(--brand); border-radius: 8px;
+  line-height: 1.9;
 }
 .qa-speak strong:first-child { color: var(--brand-deep); }
+.qa-speak .qa-meta {
+  display: block; margin: 0 0 4px; font-size: 12px; color: var(--muted); line-height: 1.6;
+}
 .qa-insight {
   margin: 12px 0 4px; padding: 2px 14px; color: var(--muted);
-  border-left: 3px solid var(--border); font-size: 13.5px;
+  border-left: 3px solid var(--border); font-size: 13.5px; line-height: 1.8;
 }
 .qa-insight strong:first-child { color: var(--muted); }
 .progressive-item {
@@ -417,7 +421,7 @@ button, a { touch-action: manipulation; }
   .hero { padding: 18px 20px; }
   .cat-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .doc-nav { margin-top: 34px; }
-  article.md { line-height: 1.78; }
+  article.md { line-height: 1.85; }
   article.md h2 { font-size: 18px; }
   article.md h3 { font-size: 15.5px; }
   article.md li { margin: 5px 0; }
@@ -1335,7 +1339,23 @@ function addQADisclosure(root) {
     // 「简洁回答」与「深入理解」视觉分块：口述稿高亮，理解段弱化
     [...body.children].forEach(p => {
       const t = p.textContent.trim();
-      if (t.startsWith('简洁回答')) p.classList.add('qa-speak');
+      if (t.startsWith('简洁回答')) {
+        p.classList.add('qa-speak');
+        // 开头的（定稿逐字版，来源 …）元信息抽成小字标签行，正文从干净起点开始
+        const strong = p.querySelector('strong:first-child');
+        const node = strong && strong.nextSibling;
+        if (node && node.nodeType === 3) {
+          const m = node.textContent.match(/^（[^）]*）/);
+          if (m) {
+            const span = document.createElement('span');
+            span.className = 'qa-meta';
+            span.textContent = m[0];
+            p.insertBefore(span, node);
+            const rest = node.textContent.slice(m[0].length);
+            if (rest.trim()) node.textContent = rest; else node.remove();
+          }
+        }
+      }
       else if (t.startsWith('深入理解')) p.classList.add('qa-insight');
     });
     item.append(summary, body);
